@@ -2,7 +2,7 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-20 14:30:19
+# @Last Modified at:   2018-07-20 15:53:00
 
 
 from pyscipopt import Model, quicksum, multidict
@@ -78,7 +78,7 @@ for i in range(m+1):
     print ('{0:9s}, {1:7s}, '.format('  dmnd[%i]' %i, 'dire[%i]' %i), end='')
 print('')
 print ('----------------------------------------------------------------------------------')
-for j in range(n):
+for j in range(10):
     print('{0:9.4f}, {1:7.4f}, '.format(D[0][j], model.getVal(w[0])*I[0]), end='')
     for i in range(1, m+1):
         print('{0:9.4f}, {1:7.4f}, '.format(D[i][j], model.getVal(x[(i,j)])*(1-alpha)), end='')

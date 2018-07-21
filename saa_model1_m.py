@@ -2,7 +2,7 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-20 15:04:48
+# @Last Modified at:   2018-07-20 15:58:44
 
 
 from pyscipopt import Model, quicksum, multidict
@@ -15,9 +15,10 @@ m = 3
 I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
 alpha = 0.1
 theta = 0.2
+prob, BIG= 1., 50
 p = 1
-M = p
-n = 10
+M = p*1.
+n = 500
 D = {}
 SV = {0: [120, 30],
       1: [40, 10],
@@ -41,6 +42,7 @@ for i in range(m+1):
 x0 = {}
 x1 = {}
 s0 = {}
+d = {}
 for i in range(1,m+1):
     for j in range(n):
         x0[(i,j)] = model.addVar(vtype='C',
@@ -49,11 +51,10 @@ for i in range(1,m+1):
         x1[(i,j)] = model.addVar(vtype='C',
                         lb=0.0,
                         name='Fulfill_from_FDC%i' %i)
+        d[(i,j)] = model.addVar(vtype='B', name='chance constrain')
 
 for j in range(n):
-    s0[j] = model.addVar(vtype='C',
-                    lb=0.0,
-                    name='Slack')
+    s0[j] = model.addVar(vtype='C', lb=0.0, name='Slack')
 
 
 # RDC capacity
@@ -70,10 +71,12 @@ for i in range(1, m+1):
 # Demand satisfied
 for i in range(1, m+1):
     for j in range(n):
-        model.addCons( I[i]+x0[(i,j)]+x1[(i,j)] == D[i][j], name='Demand')
+        model.addCons( I[i]+x0[(i,j)]+x1[(i,j)] + d[i, j]*BIG >= D[i][j], name='Demand')
 
 # Sum to 1
 model.addCons( quicksum(w[i] for i in range(m+1)) <= 1, name='Sum1')
+
+model.addCons( quicksum(d[(i,j)] for i in range(1,m+1) for j in range(n)) <= (1-prob) * m*n, name='chance')
 
 # Obj
 model.setObjective( quicksum(M*s0[i] for i in range(n)) + \
@@ -89,13 +92,15 @@ for i in range(m+1):
     print ('delta_%i: %2.5f,  ' %(i, model.getVal(w[i])), end='')
 print('')
 
-print ('-----------------------------------------------------------------')
-for i in range(m+1):
-    print ('{0:9s}, {1:7s}, '.format('  dmnd[%i]' %i, 'dire[%i]' %i), end='')
-print('')
-print ('----------------------------------------------------------------------------------')
-for j in range(n):
-    print('{0:9.4f}, {1:7.4f}, '.format(D[0][j], model.getVal(w[0])*I[0]), end='')
-    for i in range(1, m+1):
-        print('{0:9.4f}, {1:7.4f}, '.format(D[i][j], model.getVal(x0[(i,j)])*(1-alpha)), end='')
-    print ('')
+# print ('-----------------------------------------------------------------')
+# for i in range(m+1):
+#     print ('{0:9s}, {1:7s}, '.format('  dmnd[%i]' %i, 'dire[%i]' %i), end='')
+# print('')
+# print ('----------------------------------------------------------------------------------')
+# for j in range(n):
+#     print('{0:9.4f}, {1:7.4f}, '.format(D[0][j], model.getVal(w[0])*I[0]), end='')
+#     for i in range(1, m+1):
+#         print('{0:9.4f}, {1:7.4f}, '.format(D[i][j], model.getVal(x0[(i,j)])*(1-alpha)), end='')
+#     print('')
+
+# print (sum([model.getVal(d[(i,j)]) for j in range(n) for i in range(1,m+1)]))
