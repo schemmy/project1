@@ -2,7 +2,7 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-20 17:10:19
+# @Last Modified at:   2018-07-23 11:14:33
 
 
 from pyscipopt import Model, quicksum, multidict
@@ -14,269 +14,291 @@ import matplotlib.pyplot as plt
 
 class RDC_FDC:
 
-	def __init__(self, I, SV, n=500): 
-		self.I = I
-		self.m = len(I) - 1
-		self.alpha = 0.1
-		self.theta = 0.2
-		self.p = 1
-		self.M = self.p*1.
-		self.D = {}
-		self.SV = SV
-		self.n = n
-		for i in range(self.m+1):
-		    self.D[i] = np.clip(np.random.normal(SV[i][0], SV[i][1], n), 1, None)
+    def __init__(self, I, SV, n=500): 
+        self.I = I
+        self.m = len(I) - 1
+        self.alpha = 0.1
+        self.theta = 0.2
+        self.p = 1
+        self.M = self.p*1.
+        self.D = {}
+        self.SV = SV
+        self.n = n
+        for i in range(self.m+1):
+            self.D[i] = np.clip(np.random.normal(SV[i][0], SV[i][1], n), 1, None)
 
-	def build_1(self):
+    def build_1(self):
 
-		self.model = Model('Allocation')
-
-
-		self.w = {}
-		for i in range(self.m+1):
-		    self.w[i] = self.model.addVar(vtype='C', 
-		                    lb=0.0,
-		                    ub=1.0,
-		                    name='DC%i_reserve_ratio' %i)
-
-		self.x0 = {}
-		self.x1 = {}
-		self.s0 = {}
-
-		for i in range(1,self.m+1):
-		    for j in range(self.n):
-		        self.x0[(i,j)] = self.model.addVar(vtype='C',
-		                        lb=0.0,
-		                        name='Fulfill_from_RDC_to_DC%i' %i)
-		        self.x1[(i,j)] = self.model.addVar(vtype='C',
-		                        lb=0.0,
-		                        name='Fulfill_from_FDC%i' %i)
-
-		for j in range(self.n):
-		    self.s0[j] = self.model.addVar(vtype='C', lb=0.0, name='Slack')
+        self.model = Model('Allocation')
 
 
-		# RDC capacity
-		for j in range(self.n):
-		    self.model.addCons(self.D[0][j] + (1-self.theta)*(1-self.alpha)*quicksum(self.x0[(i,j)] \
-		                                    for i in range(1,self.m+1))\
-		                    <= self.w[0]*self.I[0] + self.s0[j], name='RDC_capacity')
+        self.w = {}
+        for i in range(self.m+1):
+            self.w[i] = self.model.addVar(vtype='C', 
+                            lb=0.0,
+                            ub=1.0,
+                            name='DC%i_reserve_ratio' %i)
 
-		# RDC stock
-		for i in range(1,self.m+1):
-		    for j in range(self.n):
-		        self.model.addCons( self.x1[(i,j)] <=self.w[i]*self.I[0], name='FDC_stock')
+        self.x0 = {}
+        self.x1 = {}
+        self.s0 = {}
 
-		# Demand satisfied
-		for i in range(1, self.m+1):
-		    for j in range(self.n):
-		        self.model.addCons( self.I[i]+self.x0[(i,j)]+self.x1[(i,j)] >= self.D[i][j], name='Demand')
+        for i in range(1,self.m+1):
+            for j in range(self.n):
+                self.x0[(i,j)] = self.model.addVar(vtype='C',
+                                lb=0.0,
+                                name='Fulfill_from_RDC_to_DC%i' %i)
+                self.x1[(i,j)] = self.model.addVar(vtype='C',
+                                lb=0.0,
+                                name='Fulfill_from_FDC%i' %i)
 
-		# Sum to 1
-		self.model.addCons( quicksum(self.w[i] for i in range(self.m+1)) <= 1, name='Sum1')
-
-		# Obj
-		self.model.setObjective( quicksum(self.M*self.s0[i] for i in range(self.n)) + \
-		    (self.alpha+self.theta*(1-self.alpha)) * self.p * quicksum(self.x0[(i,j)]  \
-		    	for i in range(1, self.m+1) for j in range(self.n) ), 'minimize')
-
-		self.model.optimize()
+        for j in range(self.n):
+            self.s0[j] = self.model.addVar(vtype='C', lb=0.0, name='Slack')
 
 
+        # RDC capacity
+        for j in range(self.n):
+            self.model.addCons(self.D[0][j] + (1-self.theta)*(1-self.alpha)*quicksum(self.x0[(i,j)] \
+                                            for i in range(1,self.m+1))\
+                            <= self.w[0]*self.I[0] + self.s0[j], name='RDC_capacity')
 
-	def build_2(self):
+        # RDC stock
+        for i in range(1,self.m+1):
+            for j in range(self.n):
+                self.model.addCons( self.x1[(i,j)] <=self.w[i]*self.I[0], name='FDC_stock')
 
-		self.model = Model('Allocation')
+        # Demand satisfied
+        for i in range(1, self.m+1):
+            for j in range(self.n):
+                self.model.addCons( self.I[i]+self.x0[(i,j)]+self.x1[(i,j)] >= self.D[i][j], name='Demand')
 
+        # Sum to 1
+        self.model.addCons( quicksum(self.w[i] for i in range(self.m+1)) <= 1, name='Sum1')
 
-		self.w = {}
-		for i in range(self.m+1):
-		    self.w[i] = self.model.addVar(vtype='C', 
-		                    lb=0.0,
-		                    ub=1.0,
-		                    name='DC%i_reserve_ratio' %i)
+        # Obj
+        self.model.setObjective( quicksum(self.M*self.s0[i] for i in range(self.n)) + \
+            (self.alpha+self.theta*(1-self.alpha)) * self.p * quicksum(self.x0[(i,j)]  \
+                for i in range(1, self.m+1) for j in range(self.n) ), 'minimize')
 
-		self.x = {}
-		for i in range(self.m+1):
-		    for j in range (self.n):
-		        self.x[(i,j)] = self.model.addVar(vtype='C',
-		                        lb=0.0,
-		                        name='DC%i_stockout' %i)
+        self.model.optimize()
 
 
 
-		for j in range(self.n):
-		    self.model.addCons( self.x[(0,j)] >= (1-self.alpha) * (1-self.theta) * quicksum(self.x[(i,j)]\
-		                  for i in range(1,self.m+1)) - self.w[0] * self.I[0] + self.D[0][j], name='RDC_out')
+    def build_2(self):
 
-		for i in range(1, self.m+1):
-		    for j in range(self.n):
-		        self.model.addCons( self.x[(i,j)] >= self.D[i][j] - self.w[i] * self.I[0] - self.I[i],
-		        name='FDC%i_out' %i)
-
-		# Sum to 1
-		self.model.addCons( quicksum(self.w[i] for i in range(self.m+1)) <= 1, name='Sum1')
-
-		# Obj
-		self.model.setObjective(
-		    quicksum( self.x[(0,j)] * self.p for j in range(self.n))
-		    + quicksum( self.x[(i,j)] * self.p * (self.alpha+self.theta*(1-self.alpha))
-		    for i in range(1, self.m+1) for j in range(self.n)) , 'minimize')
-
-		self.model.optimize()
+        self.model = Model('Allocation')
 
 
-	def get_sol(self):
-		return [self.model.getVal(self.w[i]) for i in range(self.m+1)]
+        self.w = {}
+        for i in range(self.m+1):
+            self.w[i] = self.model.addVar(vtype='C', 
+                            lb=0.0,
+                            ub=1.0,
+                            name='DC%i_reserve_ratio' %i)
 
-	def print_model(self, full=False):
-
-		print('Optimal value:', self.model.getObjVal()/self.n)
-		print('Optimal Solution:')
-		for i in range(self.m+1):
-		    print ('delta_%i: %2.5f,  ' %(i, self.model.getVal(self.w[i])), end='')
-		print('')
-
-		if full==True:
-			print ('-----------------------------------------------------------------')
-			for i in range(self.m+1):
-			    print ('{0:9s}, {1:7s}, '.format('  dmnd[%i]' %i, 'dire[%i]' %i), end='')
-			print('')
-			print ('----------------------------------------------------------------------------------')
-			for j in range(self.n):
-			    print('{0:9.4f}, {1:7.4f}, '.format(self.D[0][j], self.model.getVal(self.w[0])*self.I[0]), end='')
-			    for i in range(1, self.m+1):
-			        print('{0:9.4f}, {1:7.4f}, '.format(self.D[i][j], \
-			        	self.model.getVal(self.x0[(i,j)])*(1-self.alpha)), end='')
-			    print('')
+        self.x = {}
+        for i in range(self.m+1):
+            for j in range (self.n):
+                self.x[(i,j)] = self.model.addVar(vtype='C',
+                                lb=0.0,
+                                name='DC%i_stockout' %i)
 
 
 
-def exp1():
-	I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
-	SV = {0: [120, 30],
-	      1: [40, 10],
-	      2: [40, 10],
-	      3: [40, 10]
-	      } 
-	n = 500
+        for j in range(self.n):
+            self.model.addCons( self.x[(0,j)] >= (1-self.alpha) * (1-self.theta) * quicksum(self.x[(i,j)]\
+                          for i in range(1,self.m+1)) - self.w[0] * self.I[0] + self.D[0][j], name='RDC_out')
 
-	exp_I0 = list(range(100,360,15))
-	w0 = []
-	for e in exp_I0:
-		np.random.seed(0)
-		I[0] = e
-		m = RDC_FDC(I, SV, n)
-		m.build_2()
-		m.print_model()
-		sol = m.get_sol()
-		w0.append(sol[0])
+        for i in range(1, self.m+1):
+            for j in range(self.n):
+                self.model.addCons( self.x[(i,j)] >= self.D[i][j] - self.w[i] * self.I[0] - self.I[i],
+                name='FDC%i_out' %i)
 
-	plt.plot(exp_I0, w0)
-	plt.xlabel('RDC Inventory')
-	plt.ylabel('RDC 保有率')
-	plt.title('RDC保有率随自身库存下降')
-	plt.grid()
-	plt.savefig('fig/RDC_I.png', dpi=150)
-	plt.close()
-	# plt.show()
+        # Sum to 1
+        self.model.addCons( quicksum(self.w[i] for i in range(self.m+1)) <= 1, name='Sum1')
+
+        # Obj
+        self.model.setObjective(
+            quicksum( self.x[(0,j)] * self.p for j in range(self.n))
+            + quicksum( self.x[(i,j)] * self.p * (self.alpha+self.theta*(1-self.alpha))
+            for i in range(1, self.m+1) for j in range(self.n)) , 'minimize')
+
+        self.model.optimize()
 
 
+    def get_sol(self):
+        return [self.model.getVal(self.w[i]) for i in range(self.m+1)]
 
-def exp2():
-	I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
-	SV = {0: [120, 30],
-	      1: [40, 10],
-	      2: [40, 10],
-	      3: [40, 10]
-	      } 
-	n = 500
+    def print_model(self, full=False):
 
-	exp_I0 = list(range(0,100,10))
-	w0 = []
-	for e in exp_I0:
-		np.random.seed(1)
-		SV[0][1] = e
-		m = RDC_FDC(I, SV, n)
-		m.build_2()
-		m.print_model()
-		sol = m.get_sol()
-		w0.append(sol[0])
+        print('Optimal value:', self.model.getObjVal()/self.n)
+        print('Optimal Solution:')
+        for i in range(self.m+1):
+            print ('delta_%i: %2.5f,  ' %(i, self.model.getVal(self.w[i])), end='')
+        print('')
 
-	plt.plot(exp_I0, w0)
-	plt.xlabel('RDC Demand Variance')
-	plt.ylabel('RDC 保有率')
-	plt.title('RDC保有率随RDC需求方差下降')
-	plt.grid()
-	plt.savefig('fig/RDC_var.png', dpi=150)
-	plt.close()
-	# plt.show()
-
-
-def exp3():
-	I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
-	SV = {0: [120, 30],
-	      1: [40, 10],
-	      2: [40, 10],
-	      3: [40, 10]
-	      } 
-	n = 500
-
-	exp_I0 = list(range(0,200,20))
-	w0 = []
-	for e in exp_I0:
-		np.random.seed(2)
-		SV[1][0] = e
-		m = RDC_FDC(I, SV, n)
-		m.build_2()
-		m.print_model()
-		sol = m.get_sol()
-		w0.append(sol[0])
-
-	plt.plot(exp_I0, w0)
-	plt.xlabel('FDC1 Demand Mean')
-	plt.ylabel('RDC 保有率')
-	plt.title('RDC保有率随FDC需求下降')
-	plt.grid()
-	plt.savefig('fig/FDC_D_mean.png', dpi=150)
-	plt.close()
-	# plt.show()
+        if full==True:
+            print ('-----------------------------------------------------------------')
+            for i in range(self.m+1):
+                print ('{0:9s}, {1:7s}, '.format('  dmnd[%i]' %i, 'dire[%i]' %i), end='')
+            print('')
+            print ('----------------------------------------------------------------------------------')
+            for j in range(self.n):
+                print('{0:9.4f}, {1:7.4f}, '.format(self.D[0][j], self.model.getVal(self.w[0])*self.I[0]), end='')
+                for i in range(1, self.m+1):
+                    print('{0:9.4f}, {1:7.4f}, '.format(self.D[i][j], \
+                        self.model.getVal(self.x0[(i,j)])*(1-self.alpha)), end='')
+                print('')
 
 
 
-def exp4():
-	I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
-	SV = {0: [120, 30],
-	      1: [40, 10],
-	      2: [40, 10],
-	      3: [40, 10]
-	      } 
-	n = 500
+def exp1(I, SV, n):
 
-	exp_I0 = list(range(0,20,2))
-	w0 = []
-	for e in exp_I0:
-		np.random.seed(2)
-		SV[1][1] = e
-		m = RDC_FDC(I, SV, n)
-		m.build_2()
-		m.print_model()
-		sol = m.get_sol()
-		w0.append(sol[0])
+    exp_I0 = list(range(100,1000,50))
+    w0, w1 = [], []
+    for e in exp_I0:
+        np.random.seed(0)
+        I[0] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_2()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(sol[0])
+        w1.append(1 - sum([i for i in sol[1:]] ))
 
-	plt.plot(exp_I0, w0)
-	plt.xlabel('FDC1 Demand Var')
-	plt.ylabel('RDC 保有率')
-	plt.title('RDC保有率随FDC需求方差上升')
-	plt.grid()
-	plt.savefig('fig/FDC_D_var.png', dpi=150)
-	plt.close()
-	# plt.show()
+    plt.plot(exp_I0, w0, label='w[0]')
+    plt.plot(exp_I0, w1, label='1-w[1:]')
+    plt.xlabel('RDC Inventory')
+    plt.ylabel('RDC 保有率')
+    plt.title('RDC保有率随自身库存下降')
+    plt.legend()
+    plt.grid()
+    plt.savefig('fig/RDC_I.png', dpi=150)
+    plt.close()
+    # plt.show()
+
+
+
+def exp2(I, SV, n):
+
+    exp_I0 = list(range(0,100,10))
+    w0 = []
+    for e in exp_I0:
+        np.random.seed(1)
+        SV[0][1] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_2()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(sol[0] )
+
+    plt.plot(exp_I0, w0)
+    plt.xlabel('RDC Demand Variance')
+    plt.ylabel('RDC 保有率')
+    plt.title('RDC保有率随RDC需求方差下降')
+    plt.grid()
+    plt.savefig('fig/RDC_D_var.png', dpi=150)
+    plt.close()
+    # plt.show()
+
+
+def exp3(I, SV, n):
+
+
+    exp_I0 = list(range(0,200,20))
+    w0 = []
+    for e in exp_I0:
+        np.random.seed(2)
+        SV[1][0] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_2()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(sol[0])
+
+    plt.plot(exp_I0, w0)
+    plt.xlabel('FDC1 Demand Mean')
+    plt.ylabel('RDC 保有率')
+    plt.title('RDC保有率随FDC需求下降')
+    plt.grid()
+    plt.savefig('fig/FDC_D_mean.png', dpi=150)
+    plt.close()
+    # plt.show()
+
+
+
+def exp4(I, SV, n):
+    I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
+    SV = {0: [120, 30],
+          1: [40, 10],
+          2: [40, 10],
+          3: [40, 10]
+          } 
+    n = 500
+
+    exp_I0 = list(range(0,22,2))
+    w0 = []
+    for e in exp_I0:
+        np.random.seed(1)
+        SV[1][1] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_2()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(sol[0])
+
+    plt.plot(exp_I0, w0)
+    plt.xlabel('FDC1 Demand Var')
+    plt.ylabel('RDC 保有率')
+    plt.title('RDC保有率随FDC需求方差上升')
+    plt.grid()
+    plt.savefig('fig/FDC_D_var.png', dpi=150)
+    plt.close()
+    # plt.show()
+
+
+def exp5(I, SV, n):
+
+    exp_I0 = list(range(0,300,15))
+    w0 = []
+    for e in exp_I0:
+        np.random.seed(1)
+        SV[0][0] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_1()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(sol[0])
+
+    plt.plot(exp_I0, w0)
+    plt.xlabel('RDC Demand Mean')
+    plt.ylabel('RDC 保有率')
+    plt.title('RDC保有率随RDC需求上升')
+    plt.grid()
+    plt.savefig('fig/RDC_D_mean.png', dpi=150)
+    plt.close()
+    # plt.show()
 
 
 
 if __name__ == "__main__":
-    exp1()
-    exp2()
-    exp3()
-    exp4()
+    I = {0: 200, 1:0, 2:10, 3:2}  # Inventory
+    SV = {0: [120, 30],
+          1: [40, 10],
+          2: [40, 10],
+          3: [40, 10]
+          } 
+    n = 500
+
+    np.random.seed(0)
+    I[0]=100
+    m = RDC_FDC(I, SV, n)
+    m.build_1()
+    m.print_model()
+    m.build_2()
+    m.print_model()
+    # exp1(I, SV, n)
+    # exp2(I, SV, n)  
+    # exp3(I, SV, n)
+    # exp4(I, SV, n)
+    # exp5(I, SV, n)

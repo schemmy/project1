@@ -2,12 +2,12 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-20 15:53:00
+# @Last Modified at:   2018-07-23 11:15:52
 
 
 from pyscipopt import Model, quicksum, multidict
 import numpy as np
-np.random.seed(1)
+np.random.seed(0)
 
 # 1-RDC, m-FDC, 1-Sku 
 
@@ -16,7 +16,7 @@ I = {0: 100, 1:0, 2:10, 3:2}  # Inventory
 alpha = 0.1
 theta = 0.2
 p = 1
-n = 10
+n = 500
 
 D = {}
 SV = {0: [120, 30],
