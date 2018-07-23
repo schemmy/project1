@@ -2,12 +2,12 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-23 11:15:52
+# @Last Modified at:   2018-07-23 11:17:34
 
 
 from pyscipopt import Model, quicksum, multidict
 import numpy as np
-np.random.seed(0)
+np.random.seed(1)
 
 # 1-RDC, m-FDC, 1-Sku 
 
