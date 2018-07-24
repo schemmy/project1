@@ -2,7 +2,7 @@
 # @Author: chenxinma
 # @Date:   2018-07-17 18:09:08
 # @Last Modified by:   chenxinma
-# @Last Modified at:   2018-07-23 11:18:35
+# @Last Modified at:   2018-07-24 10:25:19
 
 
 from pyscipopt import Model, quicksum, multidict
@@ -152,6 +152,7 @@ class RDC_FDC:
 
 
 
+
 def exp1(I, SV, n):
 
     exp_I0 = list(range(100,1000,50))
@@ -173,9 +174,10 @@ def exp1(I, SV, n):
     plt.title('RDC保有率随自身库存下降')
     plt.legend()
     plt.grid()
-    plt.savefig('fig/RDC_I.png', dpi=150)
+    plt.savefig('fig1_0/RDC_I.png', dpi=150)
     plt.close()
     # plt.show()
+
 
 
 
@@ -184,7 +186,7 @@ def exp2(I, SV, n):
     exp_I0 = list(range(0,100,10))
     w0 = []
     for e in exp_I0:
-        np.random.seed(1)
+        # np.random.seed(1)
         SV[0][1] = e
         m = RDC_FDC(I, SV, n)
         m.build_2()
@@ -197,7 +199,7 @@ def exp2(I, SV, n):
     plt.ylabel('RDC 保有率')
     plt.title('RDC保有率随RDC需求方差下降')
     plt.grid()
-    plt.savefig('fig/RDC_D_var.png', dpi=150)
+    plt.savefig('fig1_0/RDC_D_var.png', dpi=150)
     plt.close()
     # plt.show()
 
@@ -221,7 +223,7 @@ def exp3(I, SV, n):
     plt.ylabel('RDC 保有率')
     plt.title('RDC保有率随FDC需求下降')
     plt.grid()
-    plt.savefig('fig/FDC_D_mean.png', dpi=150)
+    plt.savefig('fig1_0/FDC_D_mean.png', dpi=150)
     plt.close()
     # plt.show()
 
@@ -252,7 +254,7 @@ def exp4(I, SV, n):
     plt.ylabel('RDC 保有率')
     plt.title('RDC保有率随FDC需求方差上升')
     plt.grid()
-    plt.savefig('fig/FDC_D_var.png', dpi=150)
+    plt.savefig('fig1_0/FDC_D_var.png', dpi=150)
     plt.close()
     # plt.show()
 
@@ -275,10 +277,50 @@ def exp5(I, SV, n):
     plt.ylabel('RDC 保有率')
     plt.title('RDC保有率随RDC需求上升')
     plt.grid()
-    plt.savefig('fig/RDC_D_mean.png', dpi=150)
+    plt.savefig('fig1_0/RDC_D_mean.png', dpi=150)
     plt.close()
     # plt.show()
 
+
+
+def exp0(I, SV, n):
+
+    exp_I0 = list(range(50,1000,50))
+    d_mean_sum = sum([SV[i][0] for i in SV])
+    ratio_I_d = [exp_I0[i]/d_mean_sum for i in range(len(exp_I0))]
+    w0, w1, w2, w3 = [], [], [], []
+    for e in exp_I0:
+        np.random.seed(0)
+        I[0] = e
+        m = RDC_FDC(I, SV, n)
+        m.build_2()
+        m.print_model()
+        sol = m.get_sol()
+        w0.append(1- sum([i for i in sol[1:]]))
+        w1.append(e * sum([i for i in sol[1:]] ))
+        w2.append(e * sum([i for i in sol] ))
+        w3.append(e)
+
+    fig, ax1 = plt.subplots()
+    ax1.plot(ratio_I_d, w0, color='r', label='RDC_reserve_ratio')    
+    ax1.set_xlabel('库存/需求均值总和')
+    ax1.set_ylabel('RDC_reserve_ratio')
+    ax1.set_ylim((0,1))
+    ax1.set_xlim((0,ratio_I_d[-1]))
+
+    ax2 = ax1.twinx()    
+    ax2.fill_between(ratio_I_d, 0, w1, label='FDC_Alloc', alpha=0.8)
+    ax2.fill_between(ratio_I_d, w1, w2, label='RDC_Alloc', alpha=0.8)
+    ax2.fill_between(ratio_I_d, w2, w3, label='Buffer', alpha=0.8)
+    ax2.legend(loc=6)
+    ax2.set_ylabel('Quantity')
+    ax2.set_ylim(ymin=0)
+    plt.xlabel('RDC Inventory')
+    plt.title('库存变化如何影响分配数量')
+    # plt.grid()
+    plt.savefig('fig2_0/Q_I_Fvar_%i.png' %SV[1][1])
+    plt.close()
+    # plt.show()
 
 
 if __name__ == "__main__":
@@ -290,15 +332,19 @@ if __name__ == "__main__":
           } 
     n = 500
 
-    np.random.seed(0)
-    I[0]=100
-    m = RDC_FDC(I, SV, n)
-    m.build_1()
-    m.print_model()
-    m.build_2()
-    m.print_model()
+    # np.random.seed(0)
+    # exp0(I, SV, n)
     # exp1(I, SV, n)
     # exp2(I, SV, n)  
     # exp3(I, SV, n)
     # exp4(I, SV, n)
     # exp5(I, SV, n)
+
+    var = [0,5,10,15,20]
+
+    for v in var:
+        SV[1][1] = v
+        SV[2][1] = v
+        SV[3][1] = v
+        exp0(I, SV, n)
+       
